@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description:  |
+ A Project to create an ec2 instance in a public subnet and deploy a flask application that convert numbers to roman numerals.
+ Resources to be created => Security Group that allows http and ssh traffic and ec2 instance with amazon linux two os.
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key pair name used for ssh.
+Resources:
+  WebServerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Security group allows http (80) and ssh (22) traffic from anywhere.
+      GroupName: WebServerSecurityGroup
+      VpcId: vpc-0d1fb39815fe9818a
+      SecurityGroupIngress: 
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+  WebServer: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroupIds: 
+       - !Ref WebServerSG
+      SubnetId: subnet-03a7d2e72c27792a4
+      Tags:
+        - Key: Name
+          Value: !Sub WebServer_Created_By_${AWS::StackName}
+      UserData: !Base64 |
+        #!/bin/bash
+        yum update -y
+        yum install python3 -y
+        pip3 install flask
+        FOLDER="https://raw.githubusercontent.com/hamedamir4/FlaskCloudFormation-CLI/master"
+        wget $FOLDER/app.py
+        mkdir templates && cd templates
+        wget $FOLDER/templates/index.html
+        wget $FOLDER/templates/result.html
+        cd .. 
+        python3 app.py
+Outputs:
+  WebServerDNSName:
+    Description: Public DNS Name of the Web Server.
+    Value: !Sub
+      - http://${PublicDNS}
+      - PublicDNS: !GetAtt WebServer.PublicDnsName
